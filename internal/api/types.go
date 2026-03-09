@@ -7,9 +7,9 @@ type WorkbookBaseRequest struct {
 }
 
 type VFSContext struct {
-	Mounts       map[string]VFSMount   `json:"mounts"`
+	Mounts       map[string]VFSMount    `json:"mounts"`
 	S3Sets       map[string]S3SetConfig `json:"s3_sets"`
-	TemplateVars map[string]string     `json:"template_vars,omitempty"`
+	TemplateVars map[string]string      `json:"template_vars,omitempty"`
 }
 
 type VFSMount struct {
