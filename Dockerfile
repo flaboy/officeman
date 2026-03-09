@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS build
 
 WORKDIR /src
 
@@ -10,8 +10,10 @@ RUN go mod download
 COPY . .
 
 ARG VERSION=dev
+ARG TARGETOS
+ARG TARGETARCH
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
   go build -ldflags="-s -w -X github.com/github-flaboy/officeman/internal/buildinfo.Version=${VERSION}" \
   -o /out/officeman ./cmd/officeman
 
