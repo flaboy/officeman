@@ -77,7 +77,7 @@ func TestS3Store_PutObjectBytes(t *testing.T) {
 		return fake, nil
 	})
 
-	err := store.PutObjectBytes(context.Background(), api.S3SetConfig{Bucket: "private"}, "a/b.xlsx", []byte("hello"), xlsxContentType)
+	err := store.PutObjectBytes(context.Background(), api.S3SetConfig{Bucket: "private"}, "a/b.xlsx", []byte("hello"), XLSXContentType)
 	if err != nil {
 		t.Fatalf("PutObjectBytes: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestS3Store_PutObjectBytes(t *testing.T) {
 	if got, want := fake.putKey, "a/b.xlsx"; got != want {
 		t.Fatalf("key = %q, want %q", got, want)
 	}
-	if got, want := fake.putContentType, xlsxContentType; got != want {
+	if got, want := fake.putContentType, XLSXContentType; got != want {
 		t.Fatalf("contentType = %q, want %q", got, want)
 	}
 	if got, want := string(fake.putBody), "hello"; got != want {

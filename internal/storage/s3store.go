@@ -13,7 +13,7 @@ import (
 	"github.com/github-flaboy/officeman/internal/api"
 )
 
-const xlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const XLSXContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 type ObjectStore interface {
 	GetObjectBytes(ctx context.Context, cfg api.S3SetConfig, key string) ([]byte, error)
