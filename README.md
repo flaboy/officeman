@@ -46,6 +46,14 @@ Error example:
 }
 ```
 
+## Lifecycle Difference from browserd
+
+`officeman` is request-scoped, not session-scoped.
+
+- `browserd` keeps browser runtime state and profile lifecycle across session APIs
+- `officeman` resolves VFS per request
+- every workbook request must carry its own `vfs.mounts`, `vfs.s3_sets`, and `vfs.template_vars`
+
 ## API Example
 
 ### Create
