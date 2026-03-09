@@ -10,6 +10,7 @@ import (
 
 	"github.com/github-flaboy/officeman/internal/api"
 	"github.com/github-flaboy/officeman/internal/app"
+	"github.com/github-flaboy/officeman/internal/document"
 	"github.com/github-flaboy/officeman/internal/excel"
 	"github.com/github-flaboy/officeman/internal/vfs"
 )
@@ -51,6 +52,19 @@ type envelope struct {
 	Error map[string]any `json:"error"`
 }
 
+type fakeDocumentService struct {
+	writeFn func(context.Context, api.WriteDocumentRequest) (app.DocumentResult, *app.ServiceError)
+	readFn  func(context.Context, api.ReadDocumentRequest) (app.DocumentResult, *app.ServiceError)
+}
+
+func (f fakeDocumentService) Write(ctx context.Context, req api.WriteDocumentRequest) (app.DocumentResult, *app.ServiceError) {
+	return f.writeFn(ctx, req)
+}
+
+func (f fakeDocumentService) Read(ctx context.Context, req api.ReadDocumentRequest) (app.DocumentResult, *app.ServiceError) {
+	return f.readFn(ctx, req)
+}
+
 func TestServer_CreateReturns200(t *testing.T) {
 	handler := NewHandler(fakeWorkbookService{
 		createFn: func(_ context.Context, _ api.CreateWorkbookRequest) (app.Result, *app.ServiceError) {
@@ -65,7 +79,7 @@ func TestServer_CreateReturns200(t *testing.T) {
 		addSheetFn:    noopAddSheet,
 		renameSheetFn: noopRenameSheet,
 		deleteSheetFn: noopDeleteSheet,
-	})
+	}, fakeDocumentService{writeFn: noopWriteDocument, readFn: noopReadDocument})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/workbooks/create", bytes.NewBufferString(validCreateBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -93,7 +107,7 @@ func TestServer_WriteCellsReturns400ForBadRequest(t *testing.T) {
 		addSheetFn:    noopAddSheet,
 		renameSheetFn: noopRenameSheet,
 		deleteSheetFn: noopDeleteSheet,
-	})
+	}, fakeDocumentService{writeFn: noopWriteDocument, readFn: noopReadDocument})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/workbooks/write-cells", bytes.NewBufferString(`{"filePath":"/workdir/report.xlsx"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -116,7 +130,7 @@ func TestServer_RenameSheetReturns409ForBusinessConflict(t *testing.T) {
 			return app.Result{}, &app.ServiceError{Code: "SHEET_ALREADY_EXISTS", Message: "sheet already exists"}
 		},
 		deleteSheetFn: noopDeleteSheet,
-	})
+	}, fakeDocumentService{writeFn: noopWriteDocument, readFn: noopReadDocument})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/workbooks/rename-sheet", bytes.NewBufferString(validRenameBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -125,6 +139,35 @@ func TestServer_RenameSheetReturns409ForBusinessConflict(t *testing.T) {
 
 	if rr.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409", rr.Code)
+	}
+}
+
+func TestServer_WriteDocumentReturns200(t *testing.T) {
+	handler := NewHandler(fakeWorkbookService{
+		createFn:      noopCreate,
+		metaFn:        noopMeta,
+		writeCellsFn:  noopWriteCells,
+		appendRowsFn:  noopAppendRows,
+		addSheetFn:    noopAddSheet,
+		renameSheetFn: noopRenameSheet,
+		deleteSheetFn: noopDeleteSheet,
+	}, fakeDocumentService{
+		writeFn: func(_ context.Context, _ api.WriteDocumentRequest) (app.DocumentResult, *app.ServiceError) {
+			return app.DocumentResult{
+				Resolved: vfs.ResolvedFile{S3Key: "tenants/t1/teams/team1/cases/c1/workspace/brief.docx"},
+				Meta:     document.Meta{ParagraphCount: 2},
+			}, nil
+		},
+		readFn: noopReadDocument,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/documents/write", bytes.NewBufferString(validWriteDocumentBody))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
 	}
 }
 
@@ -175,6 +218,31 @@ var validRenameBody = `{
   "toSheetName": "Summary"
 }`
 
+var validWriteDocumentBody = `{
+  "vfs": {
+    "mounts": {
+      "/workdir/": {
+        "permission": "read_write",
+        "bucket": "private",
+        "path": "tenants/{tenant_id}/teams/{team_id}/cases/{case_id}/workspace/",
+        "ttl_ms": 30000
+      }
+    },
+    "s3_sets": {
+      "private": { "bucket": "private-bucket" }
+    },
+    "template_vars": {
+      "tenant_id": "t1",
+      "team_id": "team1",
+      "case_id": "c1"
+    }
+  },
+  "filePath": "/workdir/brief.docx",
+  "blocks": [
+    { "type": "title", "text": "Weekly Report" }
+  ]
+}`
+
 func noopCreate(context.Context, api.CreateWorkbookRequest) (app.Result, *app.ServiceError) {
 	return app.Result{}, nil
 }
@@ -195,4 +263,10 @@ func noopRenameSheet(context.Context, api.RenameSheetRequest) (app.Result, *app.
 }
 func noopDeleteSheet(context.Context, api.DeleteSheetRequest) (app.Result, *app.ServiceError) {
 	return app.Result{}, nil
+}
+func noopWriteDocument(context.Context, api.WriteDocumentRequest) (app.DocumentResult, *app.ServiceError) {
+	return app.DocumentResult{}, nil
+}
+func noopReadDocument(context.Context, api.ReadDocumentRequest) (app.DocumentResult, *app.ServiceError) {
+	return app.DocumentResult{}, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/github-flaboy/officeman/internal/app"
 	"github.com/github-flaboy/officeman/internal/buildinfo"
 	"github.com/github-flaboy/officeman/internal/config"
+	"github.com/github-flaboy/officeman/internal/document"
 	"github.com/github-flaboy/officeman/internal/excel"
 	"github.com/github-flaboy/officeman/internal/httpserver"
 	"github.com/github-flaboy/officeman/internal/storage"
@@ -23,9 +24,14 @@ func main() {
 		Store:    storage.NewS3Store(nil),
 		Engine:   excel.NewEngine(),
 	}
+	docSvc := app.DocumentService{
+		Resolver: resolverFunc(vfs.ResolveFile),
+		Store:    storage.NewS3Store(nil),
+		Engine:   document.NewEngine(),
+	}
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: httpserver.NewHandler(svc),
+		Handler: httpserver.NewHandler(svc, docSvc),
 	}
 	log.Printf("officeman starting version=%s addr=%s", buildinfo.Version, addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

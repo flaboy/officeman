@@ -59,6 +59,40 @@ func TestCreateWorkbookRequest_ValidateAcceptsSheets(t *testing.T) {
 	}
 }
 
+func TestDocumentBaseRequest_ValidateRejectsNonDocxPath(t *testing.T) {
+	req := DocumentBaseRequest{
+		VFS:      validBaseRequest().VFS,
+		FilePath: "/workdir/report.txt",
+	}
+
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if got, want := err.Code, "INVALID_REQUEST"; got != want {
+		t.Fatalf("code = %q, want %q", got, want)
+	}
+}
+
+func TestWriteDocumentRequest_ValidateAcceptsBlocks(t *testing.T) {
+	req := WriteDocumentRequest{
+		DocumentBaseRequest: DocumentBaseRequest{
+			VFS:      validBaseRequest().VFS,
+			FilePath: "/workdir/report.docx",
+		},
+		Blocks: []DocumentBlock{
+			{Type: "title", Text: "Weekly Report"},
+			{Type: "heading", Level: 1, Text: "Progress"},
+			{Type: "paragraph", Text: "Done."},
+			{Type: "table", Rows: [][]any{{"name", "score"}, {"alice", 95}}},
+		},
+	}
+
+	if err := req.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+}
+
 func validBaseRequest() WorkbookBaseRequest {
 	return WorkbookBaseRequest{
 		VFS: VFSContext{

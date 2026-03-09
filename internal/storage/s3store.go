@@ -14,6 +14,7 @@ import (
 )
 
 const XLSXContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const DOCXContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 type ObjectStore interface {
 	GetObjectBytes(ctx context.Context, cfg api.S3SetConfig, key string) ([]byte, error)

@@ -71,6 +71,28 @@ type DeleteSheetRequest struct {
 	SheetName string `json:"sheetName"`
 }
 
+type DocumentBaseRequest struct {
+	RequestID string     `json:"requestId,omitempty"`
+	VFS       VFSContext `json:"vfs"`
+	FilePath  string     `json:"filePath"`
+}
+
+type WriteDocumentRequest struct {
+	DocumentBaseRequest
+	Blocks []DocumentBlock `json:"blocks,omitempty"`
+}
+
+type DocumentBlock struct {
+	Type  string  `json:"type"`
+	Text  string  `json:"text,omitempty"`
+	Level int     `json:"level,omitempty"`
+	Rows  [][]any `json:"rows,omitempty"`
+}
+
+type ReadDocumentRequest struct {
+	DocumentBaseRequest
+}
+
 type ValidationError struct {
 	Code    string
 	Message string
@@ -175,6 +197,60 @@ func (r DeleteSheetRequest) Validate() *ValidationError {
 		return invalid("sheetName is required")
 	}
 	return nil
+}
+
+func (r DocumentBaseRequest) Validate() *ValidationError {
+	if r.FilePath == "" {
+		return invalid("filePath is required")
+	}
+	if r.FilePath[0] != '/' {
+		return invalid("filePath must be an absolute document path")
+	}
+	if len(r.FilePath) < len(".docx") || r.FilePath[len(r.FilePath)-len(".docx"):] != ".docx" {
+		return invalid("filePath must end with .docx")
+	}
+	if len(r.VFS.Mounts) == 0 {
+		return invalid("mounts are required")
+	}
+	if len(r.VFS.S3Sets) == 0 {
+		return invalid("storage sets are required")
+	}
+	return nil
+}
+
+func (r WriteDocumentRequest) Validate() *ValidationError {
+	if err := r.DocumentBaseRequest.Validate(); err != nil {
+		return err
+	}
+	if len(r.Blocks) == 0 {
+		return invalid("blocks are required")
+	}
+	for _, block := range r.Blocks {
+		switch block.Type {
+		case "title", "paragraph":
+			if block.Text == "" {
+				return invalid("text is required")
+			}
+		case "heading":
+			if block.Text == "" {
+				return invalid("text is required")
+			}
+			if block.Level != 1 && block.Level != 2 {
+				return invalid("heading level must be 1 or 2")
+			}
+		case "table":
+			if len(block.Rows) == 0 {
+				return invalid("rows are required")
+			}
+		default:
+			return invalid("block type is invalid")
+		}
+	}
+	return nil
+}
+
+func (r ReadDocumentRequest) Validate() *ValidationError {
+	return r.DocumentBaseRequest.Validate()
 }
 
 func invalid(message string) *ValidationError {

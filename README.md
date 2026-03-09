@@ -1,6 +1,6 @@
 # officeman
 
-Internal Go service for VFS-backed `.xlsx` operations.
+Internal Go service for workspace-backed Office document operations.
 
 ## Current Capability (V1)
 
@@ -12,6 +12,8 @@ Internal Go service for VFS-backed `.xlsx` operations.
 - `POST /v1/workbooks/add-sheet`
 - `POST /v1/workbooks/rename-sheet`
 - `POST /v1/workbooks/delete-sheet`
+- `POST /v1/documents/write`
+- `POST /v1/documents/read`
 
 ## Local Run
 
@@ -22,6 +24,20 @@ go run ./cmd/officeman
 Environment variables:
 
 - `OFFICEMAN_PORT` (default `7012`)
+
+## Docker
+
+Build local image:
+
+```bash
+docker build -t officeman:dev .
+```
+
+Run container:
+
+```bash
+docker run --rm -p 7012:7012 officeman:dev
+```
 
 ## Response Envelope
 
@@ -52,7 +68,7 @@ Error example:
 
 - `browserd` keeps browser runtime state and profile lifecycle across session APIs
 - `officeman` resolves VFS per request
-- every workbook request must carry its own `vfs.mounts`, `vfs.s3_sets`, and `vfs.template_vars`
+- every workbook or document request must carry its own `vfs.mounts`, `vfs.s3_sets`, and `vfs.template_vars`
 
 ## API Example
 
@@ -127,6 +143,49 @@ Content-Type: application/json
 }
 ```
 
+### Write Word Document
+
+```http
+POST /v1/documents/write
+Content-Type: application/json
+
+{
+  "vfs": {
+    "mounts": {
+      "/workdir/": {
+        "permission": "read_write",
+        "bucket": "private",
+        "path": "tenants/{tenant_id}/teams/{team_id}/cases/{case_id}/workspace/",
+        "ttl_ms": 30000
+      }
+    },
+    "s3_sets": {
+      "private": {
+        "bucket": "private-bucket"
+      }
+    },
+    "template_vars": {
+      "tenant_id": "t1",
+      "team_id": "team1",
+      "case_id": "c1"
+    }
+  },
+  "filePath": "/workdir/brief.docx",
+  "blocks": [
+    { "type": "title", "text": "Weekly Report" },
+    { "type": "heading", "level": 1, "text": "Progress" },
+    { "type": "paragraph", "text": "Done." },
+    {
+      "type": "table",
+      "rows": [
+        ["name", "score"],
+        ["alice", 95]
+      ]
+    }
+  ]
+}
+```
+
 ## VFS Path Mapping Example
 
 When:
@@ -150,6 +209,7 @@ tenants/t1/teams/team1/cases/c1/workspace/report.xlsx
 ## Current Non-Goals
 
 - `.xls`
+- `.doc`
 - macros
 - charts
 - pivot tables
